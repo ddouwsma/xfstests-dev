@@ -1,0 +1,54 @@
+#! /bin/bash
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (c) 2022 Red Hat.  All Rights Reserved.
+#
+# FS QA Test 999
+#
+# Test an inventory restored from tape is correct.
+#
+. ./common/preamble
+_begin_fstest dump tape
+
+# Override the default cleanup function.
+_cleanup()
+{
+	_cleanup_dump
+	cd /
+	rm -r -f $tmp.*
+}
+
+. ./common/dump
+
+# real QA test starts here
+_supported_fs xfs
+
+_require_tape $TAPE_DEV
+_require_scratch
+_scratch_mkfs_xfs >>$seqres.full || _fail "mkfs failed"
+_scratch_mount
+
+_create_dumpdir_stress
+_erase_soft
+_do_dump_sub
+
+# We want to compare the online inventory before and after
+# being restored from tape media.
+_dump_inventory > $tmp.dump_inventory.before
+rm -rf /var/lib/xfsdump/inventory
+
+# We need to restore from tape 
+# filter out the file count, it changes as fsstress adds new operations
+_do_restore | sed -e "/entries processed$/s/[0-9][0-9]*/NUM/g"
+
+_dump_inventory > $tmp.dump_inventory.after
+
+# if error
+exit
+
+# optional stuff if your test has verbose output to help resolve problems
+#echo
+#echo "If failure, check $seqres.full (this) and $seqres.full.ok (reference)"
+
+# success, all done
+status=0
+exit
