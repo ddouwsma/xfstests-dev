@@ -32,26 +32,35 @@ _require_dm_target error
 _scratch_mkfs >> $seqres.full
 _scratch_mount
 
+# Originally I thought the problem I was chasing was  triggered by reading an
+# extent based attribute fork on an existing file.  But that turns out not to
+# be the case. 
+
 echo "Create extributes to push the attribute fork out of the inode" >> $seqres.full
 
-# The length should be based off the inode size.
-# For simplicity this assumes a value large enought to push out of the core.
-
+# For this to be general the length to fail should be based off the size of the
+# attribute fork. For simplicity just create a value large enough to push it out
+# of the inode.
 touch $SCRATCH_MNT/testfile
-setfattr -n user.test -v $(printf "teaddata:%0.512d" 1) $SCRATCH_MNT/testfile
 
-startblock=$($XFS_IO_PROG -c "bmap -al" $SCRATCH_MNT/testfile | awk 'match($3, /[0-9]+/, a) {print a[0]}')
+# Push out of inode
+setfattr -n user.test -v $(printf "teatdata_out_of_inode:%0.512d" 1) $SCRATCH_MNT/testfile
+# Push second leaf
+setfattr -n user.test -v $(printf "teatdata_out_of_leaf1:%0.4096d" 1) $SCRATCH_MNT/testfile
+setfattr -n user.test -v $(printf "teatdata_out_of_leaf2:%0.8192d" 1) $SCRATCH_MNT/testfile
 
-echo attribute fork at $startblock
+attrblocks=($($XFS_IO_PROG -c "bmap -al" $SCRATCH_MNT/testfile | awk 'match($3, /[0-9]+/, a) {print a[0]}'))
+echo attribute fork at blocks ${attrblocks[*]} >> $seqres.full
 
+# todo use drop_caches instead of unmount.
 _scratch_unmount
 
 _dmerror_init >> $seqres.full 2>&1
 _dmerror_reset_table
 _dmerror_mount >> $seqres.full 2>&1
 
-echo "Setup to error when readint the attrtribute block at $startblock" >> $seqres.full
-_dmerror_mark_range_bad $startblock 1 $SCRATCH_DEV
+echo "Setup to error when reading the attrtribute second attribute block ${attrblocks[1]}" >> $seqres.full
+_dmerror_mark_range_bad ${attrblocks[1]} 1 $SCRATCH_DEV
 
 # debug from 556
 cat >> $seqres.full << ENDL
@@ -64,7 +73,7 @@ ENDL
 _dmerror_load_error_table
 
 # Panic here if failure
-echo "Reread the extended attribute, panicing on unandled ioerrors" >> $seqres.full
+echo "Reread the extended attribute, panics on unandled ioerrors" >> $seqres.full
 getfattr -d - $SCRATCH_MNT/testfile
 
 # if error
