@@ -38,15 +38,22 @@ _scratch_mount
 
 echo "Create extributes to push the attribute fork out of the inode" >> $seqres.full
 
+# when they move out what happens to that space?
+# _xfs_get_inode_core_bytes
+# _xfs_get_inode_size
+
+# when they move from short -> extents then the whole thing must move, so we only need to align to what a long form attr fork looks like.
+
+
 # For this to be general the length to fail should be based off the size of the
 # attribute fork. For simplicity just create a value large enough to push it out
 # of the inode.
 touch $SCRATCH_MNT/testfile
 
-# Push out of inode
+# Push out of inode into its own extent
 setfattr -n user.test -v $(printf "teatdata_out_of_inode:%0.512d" 1) $SCRATCH_MNT/testfile
-# Push second leaf
-setfattr -n user.test -v $(printf "teatdata_out_of_leaf1:%0.4096d" 1) $SCRATCH_MNT/testfile
+
+# Push to a 3 block extent for the value
 setfattr -n user.test -v $(printf "teatdata_out_of_leaf2:%0.8192d" 1) $SCRATCH_MNT/testfile
 
 attrblocks=($($XFS_IO_PROG -c "bmap -al" $SCRATCH_MNT/testfile | awk 'match($3, /[0-9]+/, a) {print a[0]}'))
@@ -60,7 +67,10 @@ _dmerror_reset_table
 _dmerror_mount >> $seqres.full 2>&1
 
 echo "Setup to error when reading the attrtribute second attribute block ${attrblocks[1]}" >> $seqres.full
-_dmerror_mark_range_bad ${attrblocks[1]} 1 $SCRATCH_DEV
+# _dmerror_mark_range_bad ${attrblocks[1]} 1 $SCRATCH_DEV
+
+# try for the second full data block, but let the first be read.
+_dmerror_mark_range_bad $((${attrblocks[1]}+1)) 1 $SCRATCH_DEV
 
 # debug from 556
 cat >> $seqres.full << ENDL
