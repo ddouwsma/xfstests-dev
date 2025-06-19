@@ -51,10 +51,11 @@ echo "Create extributes to push the attribute fork out of the inode" >> $seqres.
 touch $SCRATCH_MNT/testfile
 
 # Push out of inode into its own extent
-setfattr -n user.test -v $(printf "teatdata_out_of_inode:%0.512d" 1) $SCRATCH_MNT/testfile
+# setfattr -n user.test -v $(printf "teatdata_out_of_inode:%0.512d" 1) $SCRATCH_MNT/testfile
+setfattr -n user.test -v $(printf "teasdata_out_of_inode:%0.512d" 1) $SCRATCH_MNT/testfile
 
 # Push to a 3 block extent for the value
-setfattr -n user.test -v $(printf "teatdata_out_of_leaf2:%0.8192d" 1) $SCRATCH_MNT/testfile
+# setfattr -n user.test -v $(printf "teatdata_out_of_leaf2:%0.8192d" 1) $SCRATCH_MNT/testfile
 
 attrblocks=($($XFS_IO_PROG -c "bmap -al" $SCRATCH_MNT/testfile | awk 'match($3, /[0-9]+/, a) {print a[0]}'))
 echo attribute fork at blocks ${attrblocks[*]} >> $seqres.full
@@ -70,7 +71,8 @@ echo "Setup to error when reading the attrtribute second attribute block ${attrb
 # _dmerror_mark_range_bad ${attrblocks[1]} 1 $SCRATCH_DEV
 
 # try for the second full data block, but let the first be read.
-_dmerror_mark_range_bad $((${attrblocks[1]}+1)) 1 $SCRATCH_DEV
+_dmerror_mark_range_bad $((${attrblocks[0]})) 1 $SCRATCH_DEV
+# _dmerror_mark_range_bad $((${attrblocks[1]}+1)) 1 $SCRATCH_DEV
 
 # debug from 556
 cat >> $seqres.full << ENDL
