@@ -48,14 +48,20 @@ echo "Create extributes to push the attribute fork out of the inode" >> $seqres.
 # For this to be general the length to fail should be based off the size of the
 # attribute fork. For simplicity just create a value large enough to push it out
 # of the inode.
-touch $SCRATCH_MNT/testfile
 
-# Push out of inode into its own extent
-# setfattr -n user.test -v $(printf "teatdata_out_of_inode:%0.512d" 1) $SCRATCH_MNT/testfile
-setfattr -n user.test -v $(printf "teasdata_out_of_inode:%0.512d" 1) $SCRATCH_MNT/testfile
+# Shortform
+# Cant test here, we'd fail the read of the inode.
+touch $SCRATCH_MNT/attr_shortform
+setfattr -n user.test_shortform -v $(printf "%0.12d" 12) $SCRATCH_MNT/attr_shortform
 
-# Push to a 3 block extent for the value
-# setfattr -n user.test -v $(printf "teatdata_out_of_leaf2:%0.8192d" 1) $SCRATCH_MNT/testfile
+# Single leaf block xfs_attr_leaf_get
+touch $SCRATCH_MNT/attr_leaf
+setfattr -n user.test_shortform -v $(printf "%0.512d" 512) $SCRATCH_MNT/attr_leaf
+
+# Extents xfs_attr_node_get
+# Push to a 2 blocks for the value
+touch $SCRATCH_MNT/attr_extents
+setfattr -n user.test_extents -v $(printf "%0.8192d" 8192) $SCRATCH_MNT/attr_extents
 
 attrblocks=($($XFS_IO_PROG -c "bmap -al" $SCRATCH_MNT/testfile | awk 'match($3, /[0-9]+/, a) {print a[0]}'))
 echo attribute fork at blocks ${attrblocks[*]} >> $seqres.full
